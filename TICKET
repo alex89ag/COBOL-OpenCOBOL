@@ -16,7 +16,7 @@
       ************* APERTURA Y CREACION DE ARCHIVO**********************
        INPUT-OUTPUT SECTION.
        FILE-CONTROL.
-           SELECT OPTIONAL PRODUCTOS ASSIGN TO "ProductosINDEX.dat"
+           SELECT OPTIONAL PRODUCTOS ASSIGN TO "Productos.dat"
            ORGANIZATION IS INDEXED
            RECORD KEY FD-ID
            ACCESS IS SEQUENTIAL
@@ -33,9 +33,9 @@
                05  FD-PRECIO           PIC S9(6)V99.
 
        WORKING-STORAGE SECTION.
-      *    FILE STATUS PARA ABRIR Y LEER ANTES DE BORRAR 
+      *    FILE STATUS PARA ABRIR Y LEER ANTES DE BORRAR
        01  FS-PROD                 PIC XX.
-       
+
        01  WK-TITULO.
            05  WK-SUPERMERCADO     PIC X(12) VALUE "SUPERMERCADO".
            05  WK-NOMBRE           PIC X(30).
@@ -183,7 +183,9 @@
 
        5000-ABRIR-ARCHIVO.
            OPEN EXTEND PRODUCTOS
-           IF FS-PROD NOT = 00 THEN 
+      *    SE AGREGA 05 PORQUE SI EL ARCHIVO NO ESTA CREADO GENERA UN 
+      *    ERROR 05.
+           IF FS-PROD NOT = "00" AND FS-PROD NOT = "05" THEN
                DISPLAY "ERROR AL ABRIR" FS-PROD
                MOVE 12 TO RETURN-CODE
            END-IF.
@@ -193,7 +195,7 @@
            CLOSE PRODUCTOS.
        5030-ABRIR-ARCHIVO-INP.
            OPEN INPUT PRODUCTOS
-           IF FS-PROD NOT = 00 THEN 
+           IF FS-PROD NOT = "00" THEN
                DISPLAY "ERROR AL ABRIR" FS-PROD
                MOVE 12 TO RETURN-CODE
            END-IF.
@@ -202,7 +204,7 @@
            PERFORM WK-ID TIMES
                MOVE WK-ID TO FD-ID
                READ PRODUCTOS
-               IF FS-PROD NOT = 00 THEN 
+               IF FS-PROD NOT = "00" THEN
                    DISPLAY "ERROR AL LEER" FS-PROD
                    MOVE 12 TO RETURN-CODE
                ELSE
