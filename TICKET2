@@ -1,0 +1,341 @@
+      ******************************************************************
+      * Author: ALEX ALARCÓN GHYSELINCK
+      * Date: 17/04/2021
+      * Description: Programa para ingresar compras que las almacena
+      * de forma temporal en un archivo para luego mostrar como si fuera
+      * un ticket de compra.
+      * Ademas, en esta version, crea un historial en un txt.
+      ******************************************************************
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. TICKET2.
+
+       ENVIRONMENT DIVISION.
+       CONFIGURATION SECTION.
+       SPECIAL-NAMES.
+           DECIMAL-POINT IS COMMA.
+
+      ************* APERTURA Y CREACION DE ARCHIVO**********************
+       INPUT-OUTPUT SECTION.
+       FILE-CONTROL.
+           SELECT OPTIONAL PRODUCTOS ASSIGN TO "Productos.dat"
+           ORGANIZATION IS INDEXED
+           RECORD KEY FD-ID
+           ACCESS IS SEQUENTIAL
+           FILE STATUS IS FS-PROD.
+
+           SELECT OPTIONAL HISTORIAL ASSIGN TO "Historial.txt"
+           ORGANIZATION IS SEQUENTIAL
+           FILE STATUS IS FS-HIST.
+      ******************************************************************
+
+       DATA DIVISION.
+       FILE SECTION.
+       FD  PRODUCTOS
+           RECORDING MODE F.
+           01  FD-PRODUCTO.
+               05  FD-ID               PIC 999.
+               05  FD-DESCRIPCION      PIC X(30).
+               05  FD-PRECIO           PIC S9(6)V99.
+
+       FD  HISTORIAL
+           RECORDING MODE F.
+           01  FD-HISTORIAL-LINEA          PIC X(100).
+
+       WORKING-STORAGE SECTION.
+      *    FILE STATUS PARA ABRIR Y LEER ANTES DE BORRAR
+       01  WK-ESTADOS.
+           05  FS-PROD                 PIC XX.
+           05  FS-HIST                 PIC XX.
+
+       01  WK-TITULO.
+           05  WK-SUPERMERCADO     PIC X(12) VALUE "SUPERMERCADO".
+           05  WK-NOMBRE           PIC X(30).
+           05  WK-DIRECCION        PIC X(30).
+
+       01  WK-TOTAL                PIC S9(6)V99.
+
+       01  WK-PRODUCTO.
+           05  WK-ID               PIC 999 VALUE 0.
+           05  WK-DESCRIPCION      PIC X(30).
+           05  WK-PRECIO           PIC S9(6)V99.
+
+       01  IMP-TIT-HISTORIAL.
+           05                          PIC X(41) VALUE SPACES.
+           05                          PIC X(18) VALUE
+               "HISTORIAL COMPRAS".
+
+       01  IMP-FECHA-COMPRA.
+           05                          PIC X(21) VALUE
+               "COMPRA REALIZADA EL: ".
+           05  IMP-FECHA.
+               10 IMP-DIA              PIC XX.
+               10                      PIC X VALUE "/".
+               10 IMP-MES              PIC XX.
+               10                      PIC X VALUE "/".
+               10 IMP-ANIO             PIC XX.
+           05                          PIC X VALUE SPACE.
+           05                          PIC X(06) VALUE "A LAS ".
+           05  IMP-HORA.
+               10  IMP-HS              PIC XX.
+               10                      PIC X VALUE ":".
+               10  IMP-MIN             PIC XX.
+               10                      PIC X VALUE ":".
+               10  IMP-SEG             PIC XX.
+
+       01  IMP-PRODUCTO-HISTORIAL.
+           05                           PIC X(45).
+           05  IMP-DESCRIPCION-HIS      PIC X(30).
+           05  IMP-PRECIO-HIS           PIC $$$$$9.99.
+
+       01  IMP-PRODUCTO.
+           05  IMP-DESCRIPCION      PIC X(30).
+           05  IMP-PRECIO           PIC $$$$$9.99.
+
+       01  IMP-TOTAL.
+           05                       PIC X(30) VALUE "TOTAL".
+           05  IMP-PRETOT           PIC $$$$$9.99.
+
+       01  IMP-SPACES              PIC X(100) VALUE SPACES.
+
+       01  IMP-ASTERISCOS.
+           05                      PIC X(50) VALUE
+           "**************************************************".
+           05                      PIC X(50) VALUE
+           "**************************************************".
+
+       01  WK-SALUDO               PIC X(23)
+                                   VALUE "GRACIAS, VUELVA PRONTOS".
+
+       01  WK-METODO-PAGO          PIC X.
+
+       01  WK-IVA                  PIC S9(6)V99.
+
+      *    SWITCH
+       01  SW-FIN                  PIC X VALUE "N".
+       01  SW-EOF                  PIC X VALUE "N".
+       01  SW-VALID                PIC X VALUE "N".
+
+       01  FECHA-COMPRA.
+           05 ANIO                PIC XX.
+           05 MES                 PIC XX.
+           05 DIA                 PIC XX.
+       
+       01  HORA-COMPRA.
+           05 HORA                PIC XX.
+           05 MIN                 PIC XX.
+           05 SEG                 PIC XX.
+
+       PROCEDURE DIVISION.
+       0000-MAIN.
+
+           ACCEPT FECHA-COMPRA FROM DATE
+           ACCEPT HORA-COMPRA  FROM TIME
+
+           PERFORM UNTIL SW-FIN = "S"
+               PERFORM 1000-COMPRA
+           END-PERFORM
+           PERFORM 1010-METODO-PAGO
+
+           PERFORM 2000-IMPRIMIR-TITULO
+           PERFORM 3000-IMPRIMIR-COMPRA
+           MOVE WK-TOTAL TO IMP-PRETOT
+           DISPLAY IMP-TOTAL
+           PERFORM 4000-IMPRIMIR-PIE-DE-PAGINA
+
+           PERFORM 6000-GUARDAR-HISTORIAL
+           PERFORM 7000-LIMPIAR-PRODUCTOS
+           GOBACK.
+
+       1000-COMPRA.
+           DISPLAY "INGRESE NOMBRE/DESCRIPCION DE PRODUCTO"
+           ACCEPT FD-DESCRIPCION
+           DISPLAY "INGRESE PRECIO"
+           ACCEPT FD-PRECIO
+
+           MULTIPLY FD-PRECIO BY 100  GIVING FD-PRECIO
+           MULTIPLY FD-PRECIO BY 0,21 GIVING WK-IVA
+           END-MULTIPLY
+
+           ADD 1          TO WK-ID
+           ADD  WK-IVA    TO FD-PRECIO
+           ADD  FD-PRECIO TO WK-TOTAL
+           END-ADD
+           MOVE WK-ID     TO FD-ID.
+
+           PERFORM 1020-AGREGAR-COMPRA
+
+           PERFORM 1030-CONTINUAR.
+
+       1010-METODO-PAGO.
+           DISPLAY "INGRESE METODO DE PAGO(T=TARJETA/E=EFECTIVO)"
+           ACCEPT WK-METODO-PAGO.
+
+       1020-AGREGAR-COMPRA.
+           PERFORM 5000-ABRIR-PRODUCTOS
+           PERFORM 5010-ESCRIBIR-PRODUCTOS
+           PERFORM 5020-CERRAR-PRODUCTOS.
+
+       1030-CONTINUAR.
+           PERFORM UNTIL SW-VALID = 'S'
+               DISPLAY "FINALIZO LA COMPRA?(S/N)"
+               ACCEPT SW-FIN
+               EVALUATE SW-FIN
+                   WHEN 'S'
+                       MOVE 'S' TO SW-VALID
+                   WHEN 's'
+                       MOVE 'S' TO SW-FIN
+                       MOVE 'S' TO SW-VALID
+                   WHEN 'N'
+                       MOVE 'S' TO SW-VALID
+                   WHEN 'n'
+                       MOVE 'N' TO SW-FIN
+                       MOVE 'S' TO SW-VALID
+                   WHEN OTHER
+                       DISPLAY "ERROR, OPCION NO VALIDA"
+                       DISPLAY "VOLVER A INGRESAR"
+                       MOVE 'N' TO SW-VALID
+               END-EVALUATE
+           END-PERFORM
+           MOVE 'N' TO SW-VALID.
+
+       2000-IMPRIMIR-TITULO.
+           DISPLAY WK-SUPERMERCADO
+           MOVE "KWIK-E-MARK"     TO WK-NOMBRE
+           DISPLAY WK-NOMBRE
+           MOVE "CALLE FALSA 123" TO WK-DIRECCION
+           DISPLAY WK-DIRECCION
+           DISPLAY SPACE
+           MOVE HORA                TO IMP-HS
+           MOVE MIN                 TO IMP-MIN
+           MOVE SEG                 TO IMP-SEG
+           MOVE ANIO                TO IMP-ANIO 
+           MOVE MES                 TO IMP-MES
+           MOVE DIA                 TO IMP-DIA
+           
+           DISPLAY IMP-FECHA-COMPRA.
+
+       3000-IMPRIMIR-COMPRA.
+           DISPLAY SPACES
+           PERFORM 5030-ABRIR-PRODUCTOS-INP
+
+           PERFORM UNTIL SW-EOF='S'
+               READ PRODUCTOS INTO WK-PRODUCTO
+               AT END MOVE 'S' TO SW-EOF
+               NOT AT END
+                   MOVE WK-DESCRIPCION TO IMP-DESCRIPCION
+                   MOVE WK-PRECIO      TO IMP-PRECIO
+                   DISPLAY IMP-PRODUCTO
+               END-READ
+           END-PERFORM
+
+           PERFORM 5020-CERRAR-PRODUCTOS
+           DISPLAY SPACES.
+
+       4000-IMPRIMIR-PIE-DE-PAGINA.
+           DISPLAY SPACE
+           DISPLAY SPACE
+
+           EVALUATE WK-METODO-PAGO
+               WHEN 'T'
+                   DISPLAY "PAGO CON TARJETA"
+               WHEN 't'
+                   DISPLAY "PAGO CON TARJETA"
+               WHEN 'E'
+                   DISPLAY "PAGO EN EFECTIVO"
+               WHEN 'e'
+                   DISPLAY "PAGO EN EFECTIVO"
+               WHEN OTHER
+                   DISPLAY "FORMA DE PAGO DESCONOCIDA"
+           END-EVALUATE
+
+           DISPLAY WK-SALUDO.
+
+       5000-ABRIR-PRODUCTOS.
+           OPEN EXTEND PRODUCTOS
+      *    SE PONE 05 PORQUE ES EL ERROR QUE APARECE CUANDO NO ENCUENTRA
+      *    EL ARCHIVO Y LO CREA.
+           IF FS-PROD NOT = "00" AND FS-PROD NOT = "05" THEN
+               DISPLAY "ERROR AL ABRIR PRODUCTOS " FS-PROD
+               MOVE 12 TO RETURN-CODE
+           END-IF.
+       5000-ABRIR-HISTORIAL.
+           OPEN EXTEND HISTORIAL
+           IF FS-HIST NOT = "00"
+      *    SI EL ARCHIVO SE CREA POR PRIMERA VEZ SE ESCRIBE EL TITULO.
+               IF FS-HIST = "05" THEN
+                   MOVE IMP-TIT-HISTORIAL TO FD-HISTORIAL-LINEA
+                   PERFORM 5010-ESCRIBIR-HISTORIAL
+                   MOVE SPACES TO FD-HISTORIAL-LINEA
+                   PERFORM 5010-ESCRIBIR-HISTORIAL
+               ELSE
+                   DISPLAY "ERROR AL ABRIR HISTORIAL " FS-HIST
+                   MOVE 12 TO RETURN-CODE
+               END-IF
+           END-IF.
+       5010-ESCRIBIR-PRODUCTOS.
+           WRITE FD-PRODUCTO AFTER 1
+           IF FS-PROD NOT = "00" THEN
+               DISPLAY "ERROR AL ESCRIBIR PRODUCTO " FS-HIST
+               MOVE 12 TO RETURN-CODE
+           END-IF.
+       5010-ESCRIBIR-HISTORIAL.
+      *    AFTER PARA QUE ESCRIBA EN LA SIGUIENTE LINEA
+           WRITE FD-HISTORIAL-LINEA AFTER 1
+           IF FS-HIST NOT = "00" THEN
+               DISPLAY "ERROR AL ESCRIBIR HISTORIAL " FS-HIST
+               MOVE 12 TO RETURN-CODE
+           END-IF.
+       5020-CERRAR-PRODUCTOS.
+           CLOSE PRODUCTOS.
+       5020-CERRAR-HISTORIAL.
+           CLOSE HISTORIAL.
+
+       5030-ABRIR-PRODUCTOS-INP.
+           OPEN INPUT PRODUCTOS
+           IF FS-PROD NOT = "00" THEN
+               DISPLAY "ERROR AL ABRIR INPUT PRODUCTOS" FS-PROD
+               MOVE 12 TO RETURN-CODE
+           END-IF.
+       6000-GUARDAR-HISTORIAL.
+           PERFORM 5030-ABRIR-PRODUCTOS-INP
+           PERFORM 5000-ABRIR-HISTORIAL
+
+           MOVE 'N' TO SW-EOF
+           
+           MOVE IMP-FECHA-COMPRA    TO FD-HISTORIAL-LINEA
+           PERFORM 5010-ESCRIBIR-HISTORIAL
+
+           PERFORM UNTIL SW-EOF='S'
+               READ PRODUCTOS INTO WK-PRODUCTO
+               AT END
+                   MOVE IMP-ASTERISCOS         TO FD-HISTORIAL-LINEA
+                   PERFORM 5010-ESCRIBIR-HISTORIAL
+                   MOVE 'S' TO SW-EOF
+               NOT AT END
+                   MOVE WK-DESCRIPCION         TO IMP-DESCRIPCION-HIS
+                   MOVE WK-PRECIO              TO IMP-PRECIO-HIS
+                   MOVE IMP-PRODUCTO-HISTORIAL TO FD-HISTORIAL-LINEA
+                   PERFORM 5010-ESCRIBIR-HISTORIAL
+               END-READ
+           END-PERFORM
+
+           PERFORM 5020-CERRAR-PRODUCTOS
+           PERFORM 5020-CERRAR-HISTORIAL.
+
+       7000-LIMPIAR-PRODUCTOS.
+           OPEN I-O PRODUCTOS
+           PERFORM WK-ID TIMES
+               MOVE WK-ID TO FD-ID
+               READ PRODUCTOS
+               IF FS-PROD NOT = "00" THEN
+                   DISPLAY "ERROR AL LEER" FS-PROD
+                   MOVE 12 TO RETURN-CODE
+               ELSE
+                   DELETE PRODUCTOS RECORD
+                   END-DELETE
+                   SUBTRACT 1 FROM WK-ID END-SUBTRACT
+               END-IF
+           END-PERFORM
+           CLOSE PRODUCTOS.
+
+       END PROGRAM TICKET2.
